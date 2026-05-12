@@ -19,7 +19,7 @@ const AdminContext = createContext<AdminContextType | undefined>(undefined);
 
 // Admin email whitelist - only these emails can access admin panel
 const ADMIN_EMAILS = [
-  'admin@yourdomain.com', // ← ဒီကနေ admin email တွေထည့်ပါ
+  'သင့် email', // ← ဒီကနေ admin email တွေထည့်ပါ
 ];
 
 export function AdminProvider({ children }: { children: React.ReactNode }) {
