@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, ShoppingCart, Check, X, User, Server, Hash } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Check, X, User, Server, Hash, Search, Loader2 } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { useUser } from '@/contexts/UserContext';
 
@@ -72,8 +72,12 @@ export default function ProductDetail({ productId }: { productId: string }) {
   const { user, isLoggedIn } = useUser();
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
   const [showOrderForm, setShowOrderForm] = useState(false);
+
   const [gameId, setGameId] = useState('');
   const [serverId, setServerId] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [verifiedName, setVerifiedName] = useState('');
+  const [verifyError, setVerifyError] = useState('');
   const [orderSuccess, setOrderSuccess] = useState(false);
 
   const product = PRODUCTS_DATA[productId];
@@ -96,16 +100,51 @@ export default function ProductDetail({ productId }: { productId: string }) {
       return;
     }
     setShowOrderForm(true);
+    setVerifiedName('');
+    setVerifyError('');
+  };
+
+  const handleVerifyId = async () => {
+    if (!gameId || (product.hasServer && !serverId)) {
+      setVerifyError('Game ID နှင့် Server ID ထည့်ပါ');
+      return;
+    }
+    setVerifying(true);
+    setVerifyError('');
+    setVerifiedName('');
+
+    try {
+      // MLBB ID verification via third-party API
+      const response = await fetch(
+        `https://api.isan.eu.org/nickname/ml?id=${gameId}&zone=${serverId}`
+      );
+      const data = await response.json();
+
+      if (data.success && data.name) {
+        setVerifiedName(data.name);
+      } else {
+        setVerifyError('ID မှားနေသည် သို့မဟုတ် ရှာမတွေ့ပါ');
+      }
+    } catch (err) {
+      setVerifyError('စစ်ဆေးမရပါ။ ထပ်စမ်းပါ');
+    } finally {
+      setVerifying(false);
+    }
   };
 
   const handleOrderSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!verifiedName && product.hasServer) {
+      setVerifyError('Game ID အရင်စစ်ဆေးပါ');
+      return;
+    }
     setOrderSuccess(true);
     setTimeout(() => {
       setShowOrderForm(false);
       setOrderSuccess(false);
       setGameId('');
       setServerId('');
+      setVerifiedName('');
     }, 3000);
   };
 
@@ -211,41 +250,77 @@ export default function ProductDetail({ productId }: { productId: string }) {
                 </div>
 
                 <form onSubmit={handleOrderSubmit} className="space-y-4">
+                  {/* Customer Name */}
                   <div>
-                    <label className="block text-sm text-gray-400 mb-1">နာမည်</label>
+                    <label className="block text-sm text-gray-400 mb-1">သင့်နာမည်</label>
                     <div className="flex items-center gap-2 bg-cyan-500/10 border border-cyan-500/30 rounded-lg px-3 py-3">
                       <User size={16} className="text-cyan-400" />
                       <span className="text-white">{user?.displayName || user?.email || 'Player'}</span>
                     </div>
                   </div>
 
+                  {/* Game ID */}
                   <div>
                     <label className="block text-sm text-gray-400 mb-1">Game ID</label>
                     <div className="relative">
                       <Hash className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                      <input type="text" placeholder="သင့် Game ID ထည့်ပါ" value={gameId}
-                        onChange={e => setGameId(e.target.value)} required
+                      <input type="text" placeholder="Game ID ထည့်ပါ" value={gameId}
+                        onChange={e => { setGameId(e.target.value); setVerifiedName(''); setVerifyError(''); }} required
                         className="w-full pl-10 pr-4 py-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400" />
                     </div>
                   </div>
 
+                  {/* Server ID (MLBB only) */}
                   {product.hasServer && (
                     <div>
                       <label className="block text-sm text-gray-400 mb-1">Server ID</label>
                       <div className="relative">
                         <Server className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                        <input type="text" placeholder="သင့် Server ID ထည့်ပါ" value={serverId}
-                          onChange={e => setServerId(e.target.value)} required
+                        <input type="text" placeholder="Server ID ထည့်ပါ" value={serverId}
+                          onChange={e => { setServerId(e.target.value); setVerifiedName(''); setVerifyError(''); }} required
                           className="w-full pl-10 pr-4 py-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400" />
                       </div>
                     </div>
                   )}
 
-                  <button type="submit"
-                    className="w-full btn-neon py-3 font-semibold flex items-center justify-center gap-2">
-                    <ShoppingCart size={18} />
-                    အော်ဒါ တင်မည်
-                  </button>
+                  {/* Verify Button */}
+                  {product.hasServer && !verifiedName && (
+                    <button type="button" onClick={handleVerifyId} disabled={verifying || !gameId || !serverId}
+                      className="w-full py-3 border border-cyan-500/50 rounded-lg text-cyan-400 hover:bg-cyan-500/10 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                      {verifying ? (
+                        <><Loader2 size={18} className="animate-spin" /> စစ်ဆေးနေသည်...</>
+                      ) : (
+                        <><Search size={18} /> Game ID စစ်ဆေးမည်</>
+                      )}
+                    </button>
+                  )}
+
+                  {/* Verify Error */}
+                  {verifyError && (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                      <p className="text-red-400 text-sm">{verifyError}</p>
+                    </div>
+                  )}
+
+                  {/* Verified Name */}
+                  {verifiedName && (
+                    <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 flex items-center gap-2">
+                      <Check className="w-5 h-5 text-green-400" />
+                      <div>
+                        <p className="text-xs text-gray-400">ကစားသမားအမည်</p>
+                        <p className="font-bold text-green-400 text-lg">{verifiedName}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Order Button - only show after verification for MLBB */}
+                  {(!product.hasServer || verifiedName) && (
+                    <button type="submit"
+                      className="w-full btn-neon py-3 font-semibold flex items-center justify-center gap-2">
+                      <ShoppingCart size={18} />
+                      အော်ဒါ တင်မည်
+                    </button>
+                  )}
                 </form>
               </>
             )}
