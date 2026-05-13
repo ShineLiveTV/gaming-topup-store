@@ -95,10 +95,7 @@ export default function ProductDetail({ productId }: { productId: string }) {
   }
 
   const handleBuyNow = () => {
-    if (!isLoggedIn) {
-      navigate('/login');
-      return;
-    }
+    if (!isLoggedIn) { navigate('/login'); return; }
     setShowOrderForm(true);
     setVerifiedName('');
     setVerifyError('');
@@ -112,20 +109,15 @@ export default function ProductDetail({ productId }: { productId: string }) {
     setVerifying(true);
     setVerifyError('');
     setVerifiedName('');
-
     try {
-      // MLBB ID verification via third-party API
-      const response = await fetch(
-        `https://api.isan.eu.org/nickname/ml?id=${gameId}&zone=${serverId}`
-      );
+      const response = await fetch(`https://api.isan.eu.org/nickname/ml?id=${gameId}&zone=${serverId}`);
       const data = await response.json();
-
       if (data.success && data.name) {
         setVerifiedName(data.name);
       } else {
         setVerifyError('ID မှားနေသည် သို့မဟုတ် ရှာမတွေ့ပါ');
       }
-    } catch (err) {
+    } catch {
       setVerifyError('စစ်ဆေးမရပါ။ ထပ်စမ်းပါ');
     } finally {
       setVerifying(false);
@@ -134,10 +126,6 @@ export default function ProductDetail({ productId }: { productId: string }) {
 
   const handleOrderSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!verifiedName && product.hasServer) {
-      setVerifyError('Game ID အရင်စစ်ဆေးပါ');
-      return;
-    }
     setOrderSuccess(true);
     setTimeout(() => {
       setShowOrderForm(false);
@@ -189,7 +177,7 @@ export default function ProductDetail({ productId }: { productId: string }) {
                     </div>
                   )}
                   <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-bold text-white">{pkg.name}</h3>
+                    <h3 className="font-bold text-white text-sm">{pkg.name}</h3>
                     {selectedPackage === pkg.id && <Check className="w-4 h-4 text-cyan-400" />}
                   </div>
                   <p className="text-xl font-bold text-cyan-400 mb-1">{pkg.amount}</p>
@@ -203,9 +191,9 @@ export default function ProductDetail({ productId }: { productId: string }) {
           {selectedPackage && (
             <div className="flex justify-center mb-12">
               <button onClick={handleBuyNow}
-                className="btn-neon flex items-center gap-2 px-8 py-3 text-lg font-semibold hover:shadow-lg hover:shadow-cyan-500/50 transition-all">
-                <ShoppingCart size={20} />
-                Buy Now - ${selectedPkg?.price.toFixed(2)}
+                className="btn-neon flex items-center gap-2 px-8 py-4 text-lg font-semibold hover:shadow-lg hover:shadow-cyan-500/50 transition-all">
+                <ShoppingCart size={22} />
+                Buy Now — ${selectedPkg?.price.toFixed(2)}
               </button>
             </div>
           )}
@@ -224,69 +212,94 @@ export default function ProductDetail({ productId }: { productId: string }) {
         </div>
       </main>
 
+      {/* Order Modal */}
       {showOrderForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
-          <div className="glass-effect border-2 border-cyan-500/50 rounded-2xl p-6 w-full max-w-md">
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center bg-black/80 backdrop-blur-sm">
+          <div className="bg-gray-950 border-t-2 sm:border-2 border-cyan-500/60 rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md shadow-2xl shadow-cyan-500/20">
+
             {orderSuccess ? (
-              <div className="text-center py-8">
-                <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-cyan-500 to-magenta-500 flex items-center justify-center mb-4">
-                  <Check className="w-8 h-8 text-white" />
+              <div className="text-center py-12 px-6">
+                <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-cyan-500 to-magenta-500 flex items-center justify-center mb-4 shadow-lg shadow-cyan-500/40">
+                  <Check className="w-10 h-10 text-white" />
                 </div>
-                <h3 className="text-xl font-bold neon-cyan mb-2">အော်ဒါ တင်ပြီးပြီ!</h3>
+                <h3 className="text-2xl font-bold neon-cyan mb-2">အော်ဒါ တင်ပြီးပြီ!</h3>
                 <p className="text-gray-400">မကြာမီ ဆောင်ရွက်ပေးပါမည်</p>
               </div>
             ) : (
-              <>
+              <div className="p-6">
+                {/* Modal Header */}
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-bold neon-cyan">Order Details</h3>
-                  <button onClick={() => setShowOrderForm(false)} className="text-gray-400 hover:text-white">
-                    <X size={20} />
+                  <div>
+                    <h3 className="text-xl font-bold text-white">Order Details</h3>
+                    <p className="text-xs text-gray-500 mt-1">အချက်အလက်များ ဖြည့်ပါ</p>
+                  </div>
+                  <button onClick={() => setShowOrderForm(false)}
+                    className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 transition-all">
+                    <X size={16} />
                   </button>
                 </div>
 
-                <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-3 mb-6">
-                  <p className="text-sm text-gray-400">Selected Package</p>
-                  <p className="font-bold text-cyan-400">{selectedPkg?.name} — ${selectedPkg?.price.toFixed(2)}</p>
+                {/* Selected Package */}
+                <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-4 mb-6">
+                  <p className="text-xs text-gray-400 mb-1">ရွေးချယ်ထားသော Package</p>
+                  <p className="font-bold text-cyan-400 text-lg">{selectedPkg?.name}</p>
+                  <p className="text-2xl font-bold text-white">${selectedPkg?.price.toFixed(2)}</p>
                 </div>
 
-                <form onSubmit={handleOrderSubmit} className="space-y-4">
+                <form onSubmit={handleOrderSubmit} className="space-y-5">
+
                   {/* Customer Name */}
                   <div>
-                    <label className="block text-sm text-gray-400 mb-1">သင့်နာမည်</label>
-                    <div className="flex items-center gap-2 bg-cyan-500/10 border border-cyan-500/30 rounded-lg px-3 py-3">
-                      <User size={16} className="text-cyan-400" />
-                      <span className="text-white">{user?.displayName || user?.email || 'Player'}</span>
+                    <label className="block text-sm font-semibold text-gray-300 mb-2">သင့်နာမည်</label>
+                    <div className="flex items-center gap-3 bg-gray-900 border border-gray-700 rounded-xl px-4 py-3">
+                      <User size={18} className="text-cyan-400" />
+                      <span className="text-white font-medium">{user?.displayName || user?.email || 'Player'}</span>
                     </div>
                   </div>
 
                   {/* Game ID */}
                   <div>
-                    <label className="block text-sm text-gray-400 mb-1">Game ID</label>
+                    <label className="block text-sm font-semibold text-gray-300 mb-2">
+                      Game ID <span className="text-red-400">*</span>
+                    </label>
                     <div className="relative">
-                      <Hash className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                      <input type="text" placeholder="Game ID ထည့်ပါ" value={gameId}
-                        onChange={e => { setGameId(e.target.value); setVerifiedName(''); setVerifyError(''); }} required
-                        className="w-full pl-10 pr-4 py-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400" />
+                      <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-400" />
+                      <input
+                        type="text"
+                        placeholder="ဥပမာ - 123456789"
+                        value={gameId}
+                        onChange={e => { setGameId(e.target.value); setVerifiedName(''); setVerifyError(''); }}
+                        required
+                        className="w-full pl-12 pr-4 py-4 bg-gray-900 border-2 border-gray-700 focus:border-cyan-500 rounded-xl text-white text-lg placeholder-gray-600 focus:outline-none transition-all"
+                      />
                     </div>
                   </div>
 
-                  {/* Server ID (MLBB only) */}
+                  {/* Server ID */}
                   {product.hasServer && (
                     <div>
-                      <label className="block text-sm text-gray-400 mb-1">Server ID</label>
+                      <label className="block text-sm font-semibold text-gray-300 mb-2">
+                        Server ID <span className="text-red-400">*</span>
+                      </label>
                       <div className="relative">
-                        <Server className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                        <input type="text" placeholder="Server ID ထည့်ပါ" value={serverId}
-                          onChange={e => { setServerId(e.target.value); setVerifiedName(''); setVerifyError(''); }} required
-                          className="w-full pl-10 pr-4 py-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400" />
+                        <Server className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-magenta-400" />
+                        <input
+                          type="text"
+                          placeholder="ဥပမာ - 1234"
+                          value={serverId}
+                          onChange={e => { setServerId(e.target.value); setVerifiedName(''); setVerifyError(''); }}
+                          required
+                          className="w-full pl-12 pr-4 py-4 bg-gray-900 border-2 border-gray-700 focus:border-magenta-500 rounded-xl text-white text-lg placeholder-gray-600 focus:outline-none transition-all"
+                        />
                       </div>
                     </div>
                   )}
 
                   {/* Verify Button */}
                   {product.hasServer && !verifiedName && (
-                    <button type="button" onClick={handleVerifyId} disabled={verifying || !gameId || !serverId}
-                      className="w-full py-3 border border-cyan-500/50 rounded-lg text-cyan-400 hover:bg-cyan-500/10 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                    <button type="button" onClick={handleVerifyId}
+                      disabled={verifying || !gameId || !serverId}
+                      className="w-full py-3 bg-gray-800 border border-cyan-500/50 rounded-xl text-cyan-400 font-semibold hover:bg-gray-700 transition-all flex items-center justify-center gap-2 disabled:opacity-40">
                       {verifying ? (
                         <><Loader2 size={18} className="animate-spin" /> စစ်ဆေးနေသည်...</>
                       ) : (
@@ -295,38 +308,40 @@ export default function ProductDetail({ productId }: { productId: string }) {
                     </button>
                   )}
 
-                  {/* Verify Error */}
+                  {/* Error */}
                   {verifyError && (
-                    <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-                      <p className="text-red-400 text-sm">{verifyError}</p>
+                    <div className="bg-red-500/10 border border-red-500/40 rounded-xl p-3 text-center">
+                      <p className="text-red-400 text-sm font-medium">{verifyError}</p>
                     </div>
                   )}
 
                   {/* Verified Name */}
                   {verifiedName && (
-                    <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3 flex items-center gap-2">
-                      <Check className="w-5 h-5 text-green-400" />
+                    <div className="bg-green-500/10 border-2 border-green-500/40 rounded-xl p-4 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                        <Check className="w-5 h-5 text-green-400" />
+                      </div>
                       <div>
-                        <p className="text-xs text-gray-400">ကစားသမားအမည်</p>
-                        <p className="font-bold text-green-400 text-lg">{verifiedName}</p>
+                        <p className="text-xs text-gray-400">ကစားသမားအမည် ✓</p>
+                        <p className="font-bold text-green-400 text-xl">{verifiedName}</p>
                       </div>
                     </div>
                   )}
 
-                  {/* Order Button - only show after verification for MLBB */}
+                  {/* Order Button */}
                   {(!product.hasServer || verifiedName) && (
                     <button type="submit"
-                      className="w-full btn-neon py-3 font-semibold flex items-center justify-center gap-2">
-                      <ShoppingCart size={18} />
-                      အော်ဒါ တင်မည်
+                      className="w-full btn-neon py-4 font-bold text-lg flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/30">
+                      <ShoppingCart size={20} />
+                      အော်ဒါ တင်မည် — ${selectedPkg?.price.toFixed(2)}
                     </button>
                   )}
                 </form>
-              </>
+              </div>
             )}
           </div>
         </div>
       )}
     </div>
   );
-}
+      }
