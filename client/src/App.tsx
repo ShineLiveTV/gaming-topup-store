@@ -8,6 +8,7 @@ import { AdminProvider } from "./contexts/AdminContext";
 import { UserProvider } from "./contexts/UserContext";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
+import Profile from "./pages/Profile";
 import ProductDetail from "./pages/ProductDetail";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -17,6 +18,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/login" component={Login} />
+      <Route path="/profile" component={Profile} />
       <Route path="/product/:productId">
         {({ productId }) => <ProductDetail productId={productId} />}
       </Route>
