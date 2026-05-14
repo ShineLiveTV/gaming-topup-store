@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, ShoppingCart, Check, X, User, Server, Hash, Search, Loader2, AtSign } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Check, X, User, Server, Hash, Search, Loader2, AtSign, ExternalLink } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { useUser } from '@/contexts/UserContext';
 
@@ -82,6 +82,7 @@ export default function ProductDetail({ productId }: { productId: string }) {
   const [verifying, setVerifying] = useState(false);
   const [verifiedName, setVerifiedName] = useState('');
   const [verifyError, setVerifyError] = useState('');
+  const [confirmed, setConfirmed] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
 
   const product = PRODUCTS_DATA[productId];
@@ -103,44 +104,23 @@ export default function ProductDetail({ productId }: { productId: string }) {
     setShowOrderForm(true);
     setVerifiedName('');
     setVerifyError('');
+    setConfirmed(false);
     setGameId('');
     setServerId('');
   };
 
-  const handleVerifyId = async () => {
+  const handleVerifyMLBB = async () => {
+    if (!gameId || !serverId) { setVerifyError('Game ID နှင့် Server ID ထည့်ပါ'); return; }
     setVerifying(true);
     setVerifyError('');
     setVerifiedName('');
-
     try {
-      if (product.verifyType === 'mlbb') {
-        if (!gameId || !serverId) { setVerifyError('Game ID နှင့် Server ID ထည့်ပါ'); setVerifying(false); return; }
-        const res = await fetch(`https://api.isan.eu.org/nickname/ml?id=${gameId}&zone=${serverId}`);
-        const data = await res.json();
-        if (data.success && data.name) {
-          setVerifiedName(data.name);
-        } else {
-          setVerifyError('ID မှားနေသည် သို့မဟုတ် ရှာမတွေ့ပါ');
-        }
-      } else if (product.verifyType === 'pubg') {
-        if (!gameId) { setVerifyError('Player ID ထည့်ပါ'); setVerifying(false); return; }
-        const res = await fetch(`https://api.isan.eu.org/nickname/pubgm?id=${gameId}`);
-        const data = await res.json();
-        if (data.success && data.name) {
-          setVerifiedName(data.name);
-        } else {
-          setVerifyError('PUBG Player ID မှားနေသည် သို့မဟုတ် ရှာမတွေ့ပါ');
-        }
-      } else if (product.verifyType === 'telegram') {
-        if (!gameId) { setVerifyError('Telegram Username ထည့်ပါ'); setVerifying(false); return; }
-        const username = gameId.replace('@', '').trim();
-        const res = await fetch(`https://api.isan.eu.org/nickname/tg?id=${username}`);
-        const data = await res.json();
-        if (data.success && data.name) {
-          setVerifiedName(data.name);
-        } else {
-          setVerifyError('Telegram Username မတွေ့ပါ၊ စစ်ဆေးပြန်ကြည့်ပါ');
-        }
+      const res = await fetch(`https://api.isan.eu.org/nickname/ml?id=${gameId}&zone=${serverId}`);
+      const data = await res.json();
+      if (data.success && data.name) {
+        setVerifiedName(data.name);
+      } else {
+        setVerifyError('ID မှားနေသည် သို့မဟုတ် ရှာမတွေ့ပါ');
       }
     } catch {
       setVerifyError('စစ်ဆေးမရပါ။ ထပ်စမ်းပါ');
@@ -158,24 +138,16 @@ export default function ProductDetail({ productId }: { productId: string }) {
       setGameId('');
       setServerId('');
       setVerifiedName('');
+      setConfirmed(false);
     }, 3000);
   };
 
-  // Field labels based on product
-  const getIdLabel = () => {
-    if (product.verifyType === 'telegram') return 'Telegram Username';
-    if (product.verifyType === 'pubg') return 'PUBG Player ID';
-    return 'Game ID';
-  };
-  const getIdPlaceholder = () => {
-    if (product.verifyType === 'telegram') return '@username သို့မဟုတ် username';
-    if (product.verifyType === 'pubg') return 'ဥပမာ - 5123456789';
-    return 'ဥပမာ - 123456789';
-  };
-  const getIdIcon = () => {
-    if (product.verifyType === 'telegram') return <AtSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-400" />;
-    return <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-400" />;
-  };
+  const telegramUsername = gameId.replace('@', '').trim();
+  const canOrder =
+    product.verifyType === 'mlbb' ? !!verifiedName :
+    product.verifyType === 'pubg' ? (!!gameId && confirmed) :
+    product.verifyType === 'telegram' ? (!!telegramUsername && confirmed) :
+    true;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -260,7 +232,7 @@ export default function ProductDetail({ productId }: { productId: string }) {
 
             {orderSuccess ? (
               <div className="text-center py-12 px-6">
-                <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-cyan-500 to-magenta-500 flex items-center justify-center mb-4 shadow-lg shadow-cyan-500/40">
+                <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-cyan-500 to-magenta-500 flex items-center justify-center mb-4">
                   <Check className="w-10 h-10 text-white" />
                 </div>
                 <h3 className="text-2xl font-bold neon-cyan mb-2">အော်ဒါ တင်ပြီးပြီ!</h3>
@@ -268,19 +240,17 @@ export default function ProductDetail({ productId }: { productId: string }) {
               </div>
             ) : (
               <div className="p-6">
-                {/* Header */}
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <h3 className="text-xl font-bold text-white">Order Details</h3>
                     <p className="text-xs text-gray-500 mt-1">အချက်အလက်များ ဖြည့်ပါ</p>
                   </div>
                   <button onClick={() => setShowOrderForm(false)}
-                    className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 transition-all">
+                    className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white transition-all">
                     <X size={16} />
                   </button>
                 </div>
 
-                {/* Package */}
                 <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-4 mb-6">
                   <p className="text-xs text-gray-400 mb-1">ရွေးချယ်ထားသော Package</p>
                   <p className="font-bold text-cyan-400 text-lg">{selectedPkg?.name}</p>
@@ -297,73 +267,115 @@ export default function ProductDetail({ productId }: { productId: string }) {
                     </div>
                   </div>
 
-                  {/* ID Field */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-300 mb-2">
-                      {getIdLabel()} <span className="text-red-400">*</span>
-                    </label>
-                    <div className="relative">
-                      {getIdIcon()}
-                      <input type="text" placeholder={getIdPlaceholder()} value={gameId}
-                        onChange={e => { setGameId(e.target.value); setVerifiedName(''); setVerifyError(''); }}
-                        required
-                        className="w-full pl-12 pr-4 py-4 bg-gray-900 border-2 border-gray-700 focus:border-cyan-500 rounded-xl text-white text-lg placeholder-gray-600 focus:outline-none transition-all" />
-                    </div>
-                  </div>
-
-                  {/* Server ID (MLBB only) */}
-                  {product.hasServer && (
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-300 mb-2">
-                        Server ID <span className="text-red-400">*</span>
-                      </label>
-                      <div className="relative">
-                        <Server className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-magenta-400" />
-                        <input type="text" placeholder="ဥပမာ - 1234" value={serverId}
-                          onChange={e => { setServerId(e.target.value); setVerifiedName(''); setVerifyError(''); }}
-                          required
-                          className="w-full pl-12 pr-4 py-4 bg-gray-900 border-2 border-gray-700 focus:border-magenta-500 rounded-xl text-white text-lg placeholder-gray-600 focus:outline-none transition-all" />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Verify Button */}
-                  {!verifiedName && (
-                    <button type="button" onClick={handleVerifyId}
-                      disabled={verifying || !gameId || (product.hasServer && !serverId)}
-                      className="w-full py-3 bg-gray-800 border border-cyan-500/50 rounded-xl text-cyan-400 font-semibold hover:bg-gray-700 transition-all flex items-center justify-center gap-2 disabled:opacity-40">
-                      {verifying ? (
-                        <><Loader2 size={18} className="animate-spin" /> စစ်ဆေးနေသည်...</>
-                      ) : (
-                        <><Search size={18} /> {getIdLabel()} စစ်ဆေးမည်</>
-                      )}
-                    </button>
-                  )}
-
-                  {/* Error */}
-                  {verifyError && (
-                    <div className="bg-red-500/10 border border-red-500/40 rounded-xl p-3 text-center">
-                      <p className="text-red-400 text-sm font-medium">{verifyError}</p>
-                    </div>
-                  )}
-
-                  {/* Verified */}
-                  {verifiedName && (
-                    <div className="bg-green-500/10 border-2 border-green-500/40 rounded-xl p-4 flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
-                        <Check className="w-5 h-5 text-green-400" />
+                  {/* MLBB */}
+                  {product.verifyType === 'mlbb' && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-300 mb-2">Game ID <span className="text-red-400">*</span></label>
+                        <div className="relative">
+                          <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-400" />
+                          <input type="text" placeholder="ဥပမာ - 123456789" value={gameId}
+                            onChange={e => { setGameId(e.target.value); setVerifiedName(''); setVerifyError(''); }} required
+                            className="w-full pl-12 pr-4 py-4 bg-gray-900 border-2 border-gray-700 focus:border-cyan-500 rounded-xl text-white text-lg placeholder-gray-600 focus:outline-none transition-all" />
+                        </div>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-400">
-                          {product.verifyType === 'telegram' ? 'Telegram အမည် ✓' : 'ကစားသမားအမည် ✓'}
-                        </p>
-                        <p className="font-bold text-green-400 text-xl">{verifiedName}</p>
+                        <label className="block text-sm font-semibold text-gray-300 mb-2">Server ID <span className="text-red-400">*</span></label>
+                        <div className="relative">
+                          <Server className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-magenta-400" />
+                          <input type="text" placeholder="ဥပမာ - 1234" value={serverId}
+                            onChange={e => { setServerId(e.target.value); setVerifiedName(''); setVerifyError(''); }} required
+                            className="w-full pl-12 pr-4 py-4 bg-gray-900 border-2 border-gray-700 focus:border-cyan-500 rounded-xl text-white text-lg placeholder-gray-600 focus:outline-none transition-all" />
+                        </div>
                       </div>
-                    </div>
+                      {!verifiedName && (
+                        <button type="button" onClick={handleVerifyMLBB}
+                          disabled={verifying || !gameId || !serverId}
+                          className="w-full py-3 bg-gray-800 border border-cyan-500/50 rounded-xl text-cyan-400 font-semibold hover:bg-gray-700 transition-all flex items-center justify-center gap-2 disabled:opacity-40">
+                          {verifying ? <><Loader2 size={18} className="animate-spin" /> စစ်ဆေးနေသည်...</> : <><Search size={18} /> Game ID စစ်ဆေးမည်</>}
+                        </button>
+                      )}
+                      {verifyError && (
+                        <div className="bg-red-500/10 border border-red-500/40 rounded-xl p-3 text-center">
+                          <p className="text-red-400 text-sm">{verifyError}</p>
+                        </div>
+                      )}
+                      {verifiedName && (
+                        <div className="bg-green-500/10 border-2 border-green-500/40 rounded-xl p-4 flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                            <Check className="w-5 h-5 text-green-400" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-400">ကစားသမားအမည် ✓</p>
+                            <p className="font-bold text-green-400 text-xl">{verifiedName}</p>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* PUBG */}
+                  {product.verifyType === 'pubg' && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-300 mb-2">PUBG Player ID <span className="text-red-400">*</span></label>
+                        <div className="relative">
+                          <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-400" />
+                          <input type="text" placeholder="ဥပမာ - 5123456789" value={gameId}
+                            onChange={e => { setGameId(e.target.value); setConfirmed(false); }} required
+                            className="w-full pl-12 pr-4 py-4 bg-gray-900 border-2 border-gray-700 focus:border-cyan-500 rounded-xl text-white text-lg placeholder-gray-600 focus:outline-none transition-all" />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">PUBG Mobile → Profile → Player ID မှ ရယူပါ</p>
+                      </div>
+                      {gameId && (
+                        <label className="flex items-start gap-3 cursor-pointer bg-gray-900 border border-gray-700 rounded-xl p-4">
+                          <div className={`w-6 h-6 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-all ${confirmed ? 'bg-cyan-500 border-cyan-500' : 'border-gray-600'}`}
+                            onClick={() => setConfirmed(!confirmed)}>
+                            {confirmed && <Check size={14} className="text-white" />}
+                          </div>
+                          <p className="text-sm text-gray-300">
+                            Player ID <span className="text-cyan-400 font-bold">{gameId}</span> သည် ကျွန်ုပ်၏ PUBG Mobile account မှန်ကန်ကြောင်း အတည်ပြုပါသည်
+                          </p>
+                        </label>
+                      )}
+                    </>
+                  )}
+
+                  {/* Telegram */}
+                  {product.verifyType === 'telegram' && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-300 mb-2">Telegram Username <span className="text-red-400">*</span></label>
+                        <div className="relative">
+                          <AtSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-400" />
+                          <input type="text" placeholder="@username" value={gameId}
+                            onChange={e => { setGameId(e.target.value); setConfirmed(false); }} required
+                            className="w-full pl-12 pr-4 py-4 bg-gray-900 border-2 border-gray-700 focus:border-cyan-500 rounded-xl text-white text-lg placeholder-gray-600 focus:outline-none transition-all" />
+                        </div>
+                      </div>
+                      {telegramUsername && (
+                        <>
+                          <a href={`https://t.me/${telegramUsername}`} target="_blank" rel="noopener noreferrer"
+                            className="w-full py-3 bg-gray-800 border border-cyan-500/50 rounded-xl text-cyan-400 font-semibold hover:bg-gray-700 transition-all flex items-center justify-center gap-2">
+                            <ExternalLink size={18} />
+                            t.me/{telegramUsername} ကို ဖွင့်ကြည့်ပါ
+                          </a>
+                          <label className="flex items-start gap-3 cursor-pointer bg-gray-900 border border-gray-700 rounded-xl p-4">
+                            <div className={`w-6 h-6 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-all ${confirmed ? 'bg-cyan-500 border-cyan-500' : 'border-gray-600'}`}
+                              onClick={() => setConfirmed(!confirmed)}>
+                              {confirmed && <Check size={14} className="text-white" />}
+                            </div>
+                            <p className="text-sm text-gray-300">
+                              <span className="text-cyan-400 font-bold">@{telegramUsername}</span> သည် ကျွန်ုပ်၏ Telegram account မှန်ကန်ကြောင်း အတည်ပြုပါသည်
+                            </p>
+                          </label>
+                        </>
+                      )}
+                    </>
                   )}
 
                   {/* Order Button */}
-                  {verifiedName && (
+                  {canOrder && (
                     <button type="submit"
                       className="w-full btn-neon py-4 font-bold text-lg flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/30">
                       <ShoppingCart size={20} />
