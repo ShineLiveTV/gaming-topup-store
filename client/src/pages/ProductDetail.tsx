@@ -72,11 +72,10 @@ const PRODUCTS_DATA: Record<string, ProductData> = {
   }
 };
 
-// Payment accounts — ဒီနေရာမှာ သင့် KBZPay/WavePay number ထည့်ပါ
 const PAYMENT_INFO = {
-  kbzpay: '09xxxxxxxxx',   // ← သင့် KBZPay number
-  wavepay: '09xxxxxxxxx',  // ← သင့် WavePay number
-  name: 'သင့်နာမည်',        // ← သင့်နာမည်
+  kbzpay: '09xxxxxxxxx',
+  wavepay: '09xxxxxxxxx',
+  name: 'သင့်နာမည်',
 };
 
 type Step = 'form' | 'payment' | 'success';
@@ -98,6 +97,7 @@ export default function ProductDetail({ productId }: { productId: string }) {
   const [orderId, setOrderId] = useState('');
   const [selectedPayment, setSelectedPayment] = useState<'kbzpay' | 'wavepay'>('kbzpay');
   const [copied, setCopied] = useState(false);
+  const [transferId, setTransferId] = useState('');
 
   const product = PRODUCTS_DATA[productId];
   const selectedPkg = product?.packages.find(p => p.id === selectedPackage);
@@ -122,6 +122,7 @@ export default function ProductDetail({ productId }: { productId: string }) {
     setConfirmed(false);
     setGameId('');
     setServerId('');
+    setTransferId('');
   };
 
   const handleVerifyMLBB = async () => {
@@ -173,7 +174,15 @@ export default function ProductDetail({ productId }: { productId: string }) {
     }
   };
 
-  const handlePaymentDone = () => {
+  const handlePaymentDone = async () => {
+    if (!transferId || transferId.length !== 6) return;
+    // Save transfer ID to order
+    try {
+      const { ref, set, getDatabase } = await import('firebase/database');
+      const db = getDatabase();
+      await set(ref(db, `orders/${orderId}/transferId`), transferId);
+      await set(ref(db, `orders/${orderId}/status`), 'processing');
+    } catch (e) { console.error(e); }
     setStep('success');
     setTimeout(() => {
       setShowOrderForm(false);
@@ -182,6 +191,7 @@ export default function ProductDetail({ productId }: { productId: string }) {
       setServerId('');
       setVerifiedName('');
       setConfirmed(false);
+      setTransferId('');
       setSelectedPackage(null);
     }, 4000);
   };
@@ -208,10 +218,9 @@ export default function ProductDetail({ productId }: { productId: string }) {
         <div className="absolute bottom-20 right-10 w-72 h-72 bg-magenta-500/5 rounded-full blur-3xl" />
       </div>
 
-      {/* Header */}
       <div className="relative z-10 glass-effect border-b border-cyan-500/20 sticky top-0">
         <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <button onClick={() => navigate('/')} className="p-2 hover:bg-cyan-500/10 rounded-lg transition-colors">
+          <button onClick={() => navigate('/')} className="p-2 hover:bg-cyan-500/10 rounded-lg">
             <ArrowLeft className="w-6 h-6 text-cyan-400" />
           </button>
           <h1 className="text-xl font-bold neon-cyan">{product.name}</h1>
@@ -224,30 +233,24 @@ export default function ProductDetail({ productId }: { productId: string }) {
             <div className="mb-6 rounded-2xl overflow-hidden glass-effect border border-cyan-500/30 h-64 md:h-80">
               <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
             </div>
-            <p className="text-gray-300 text-center md:text-lg">{product.description}</p>
+            <p className="text-gray-300 text-center">{product.description}</p>
           </div>
 
-          {/* Packages */}
           <div className="mb-12">
             <h2 className="text-2xl font-bold mb-6 text-center neon-cyan">Select Your Package</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {product.packages.map(pkg => (
                 <button key={pkg.id} onClick={() => setSelectedPackage(pkg.id)}
-                  className={`relative p-4 rounded-xl transition-all duration-300 text-left ${
-                    selectedPackage === pkg.id
-                      ? 'glass-effect border-2 border-cyan-400 shadow-lg shadow-cyan-500/50'
-                      : 'glass-effect border border-cyan-500/30 hover:border-cyan-500/60'
+                  className={`relative p-4 rounded-xl transition-all text-left ${
+                    selectedPackage === pkg.id ? 'glass-effect border-2 border-cyan-400 shadow-lg shadow-cyan-500/50' : 'glass-effect border border-cyan-500/30'
                   } ${pkg.popular ? 'ring-2 ring-magenta-500/50' : ''}`}>
-                  {pkg.popular && (
-                    <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-cyan-500 to-magenta-500 text-black px-3 py-1 rounded-full text-xs font-bold">POPULAR</div>
-                  )}
+                  {pkg.popular && <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-cyan-500 to-magenta-500 text-black px-3 py-1 rounded-full text-xs font-bold">POPULAR</div>}
                   <div className="flex items-start justify-between mb-1">
                     <h3 className="font-bold text-white text-sm">{pkg.name}</h3>
                     {selectedPackage === pkg.id && <Check className="w-4 h-4 text-cyan-400" />}
                   </div>
                   <p className="text-lg font-bold text-cyan-400 mb-1">{pkg.amount}</p>
-                  {pkg.bonus && <p className="text-xs text-magenta-400 mb-1 font-semibold">{pkg.bonus}</p>}
-                  {/* MMK Price */}
+                  {pkg.bonus && <p className="text-xs text-magenta-400 mb-1">{pkg.bonus}</p>}
                   <p className="text-base font-bold text-white">{formatMMK(pkg.price)}</p>
                   <p className="text-xs text-gray-500">${pkg.price.toFixed(2)}</p>
                 </button>
@@ -257,8 +260,7 @@ export default function ProductDetail({ productId }: { productId: string }) {
 
           {selectedPackage && (
             <div className="flex justify-center mb-12">
-              <button onClick={handleBuyNow}
-                className="btn-neon flex items-center gap-2 px-8 py-4 text-lg font-semibold">
+              <button onClick={handleBuyNow} className="btn-neon flex items-center gap-2 px-8 py-4 text-lg font-semibold">
                 <ShoppingCart size={22} />
                 Buy Now — {formatMMK(selectedPkg?.price || 0)}
               </button>
@@ -270,7 +272,7 @@ export default function ProductDetail({ productId }: { productId: string }) {
             <ul className="space-y-3">
               {['Instant delivery', '100% Secure', '24/7 Customer Support', 'KBZPay, WavePay'].map(f => (
                 <li key={f} className="flex items-center gap-3">
-                  <Check className="w-5 h-5 text-cyan-400 flex-shrink-0" />
+                  <Check className="w-5 h-5 text-cyan-400" />
                   <span className="text-gray-300">{f}</span>
                 </li>
               ))}
@@ -279,24 +281,26 @@ export default function ProductDetail({ productId }: { productId: string }) {
         </div>
       </main>
 
-      {/* Modal */}
       {showOrderForm && (
         <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center bg-black/80 backdrop-blur-sm">
           <div className="bg-gray-950 border-t-2 sm:border-2 border-cyan-500/60 rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md shadow-2xl max-h-[92vh] overflow-y-auto">
 
-            {/* Step: SUCCESS */}
+            {/* SUCCESS */}
             {step === 'success' && (
               <div className="text-center py-12 px-6">
                 <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-cyan-500 to-magenta-500 flex items-center justify-center mb-4">
                   <Check className="w-10 h-10 text-white" />
                 </div>
                 <h3 className="text-2xl font-bold neon-cyan mb-2">အော်ဒါ တင်ပြီးပြီ!</h3>
-                <p className="text-gray-400 mb-2">Order ID: <span className="text-cyan-400 font-mono text-sm">{orderId.slice(0, 10)}</span></p>
-                <p className="text-gray-400 text-sm">ငွေပေးချေမှု စစ်ဆေးပြီးနောက် မကြာမီ ဆောင်ရွက်ပေးပါမည်</p>
+                <p className="text-gray-400 mb-2">Order ID: <span className="text-cyan-400 font-mono">{orderId.slice(0, 10)}</span></p>
+                <p className="text-gray-400 text-sm mb-4">ငွေပေးချေမှု စစ်ဆေးပြီးနောက် မကြာမီ ဆောင်ရွက်ပေးပါမည်</p>
+                <button onClick={() => navigate('/profile')} className="text-cyan-400 text-sm underline">
+                  Order မှတ်တမ်း ကြည့်ရန် →
+                </button>
               </div>
             )}
 
-            {/* Step: PAYMENT */}
+            {/* PAYMENT */}
             {step === 'payment' && selectedPkg && (
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
@@ -304,21 +308,18 @@ export default function ProductDetail({ productId }: { productId: string }) {
                     <h3 className="text-xl font-bold text-white">ငွေပေးချေမည်</h3>
                     <p className="text-xs text-gray-500 mt-1">Order ID: {orderId.slice(0, 10)}</p>
                   </div>
-                  <button onClick={() => setShowOrderForm(false)}
-                    className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white">
+                  <button onClick={() => setShowOrderForm(false)} className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-gray-400">
                     <X size={16} />
                   </button>
                 </div>
 
-                {/* Amount */}
-                <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-4 mb-6 text-center">
+                <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-4 mb-5 text-center">
                   <p className="text-xs text-gray-400 mb-1">ပေးချေရမည့်ငွေ</p>
                   <p className="text-4xl font-bold text-white">{mmkPrice.toLocaleString()} <span className="text-2xl text-cyan-400">Ks</span></p>
                   <p className="text-sm text-gray-500 mt-1">{selectedPkg.name} — {product.name}</p>
                 </div>
 
-                {/* Payment Method */}
-                <div className="flex gap-3 mb-6">
+                <div className="flex gap-3 mb-5">
                   <button onClick={() => setSelectedPayment('kbzpay')}
                     className={`flex-1 py-3 rounded-xl font-semibold transition-all ${selectedPayment === 'kbzpay' ? 'bg-cyan-500/20 border-2 border-cyan-500 text-cyan-400' : 'bg-gray-900 border border-gray-700 text-gray-400'}`}>
                     KBZPay
@@ -329,39 +330,51 @@ export default function ProductDetail({ productId }: { productId: string }) {
                   </button>
                 </div>
 
-                {/* Account Number */}
-                <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 mb-4">
+                <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 mb-5">
                   <p className="text-xs text-gray-500 mb-2">{selectedPayment === 'kbzpay' ? 'KBZPay' : 'WavePay'} နံပါတ်</p>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xl font-bold text-white font-mono">
-                        {selectedPayment === 'kbzpay' ? PAYMENT_INFO.kbzpay : PAYMENT_INFO.wavepay}
-                      </p>
+                      <p className="text-xl font-bold text-white font-mono">{selectedPayment === 'kbzpay' ? PAYMENT_INFO.kbzpay : PAYMENT_INFO.wavepay}</p>
                       <p className="text-sm text-gray-400">{PAYMENT_INFO.name}</p>
                     </div>
                     <button onClick={() => handleCopyNumber(selectedPayment === 'kbzpay' ? PAYMENT_INFO.kbzpay : PAYMENT_INFO.wavepay)}
-                      className="flex items-center gap-1 px-3 py-2 bg-cyan-500/20 border border-cyan-500/30 rounded-lg text-cyan-400 text-sm hover:bg-cyan-500/30 transition-all">
+                      className="flex items-center gap-1 px-3 py-2 bg-cyan-500/20 border border-cyan-500/30 rounded-lg text-cyan-400 text-sm">
                       {copied ? <Check size={14} /> : <Copy size={14} />}
                       {copied ? 'Copied!' : 'Copy'}
                     </button>
                   </div>
                 </div>
 
-                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3 mb-6">
-                  <p className="text-yellow-400 text-xs text-center">
-                    ⚠️ ငွေလွှဲပြီးနောက် "ငွေပေးပြီးပါပြီ" ကို နှိပ်ပါ
-                  </p>
+                {/* Transfer ID */}
+                <div className="mb-3">
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">
+                    ငွေလွဲ ID (နောက်ဆုံး ၆ လုံး) <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="ဥပမာ - 123456"
+                    value={transferId}
+                    onChange={e => setTransferId(e.target.value.slice(0, 6))}
+                    maxLength={6}
+                    className="w-full px-4 py-4 bg-gray-900 border-2 border-gray-700 focus:border-cyan-500 rounded-xl text-white text-xl text-center tracking-widest placeholder-gray-600 focus:outline-none transition-all"
+                  />
+                  <p className="text-xs text-gray-500 mt-1 text-center">ငွေလွှဲပြေစာ (Transaction ID) ၏ နောက်ဆုံး ၆ လုံး</p>
+                </div>
+
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-3 mb-5">
+                  <p className="text-yellow-400 text-xs text-center">⚠️ ငွေလွှဲပြီးနောက် "ငွေပေးပြီးပါပြီ" ကို နှိပ်ပါ</p>
                 </div>
 
                 <button onClick={handlePaymentDone}
-                  className="w-full btn-neon py-4 font-bold text-lg flex items-center justify-center gap-2">
+                  disabled={transferId.length !== 6}
+                  className="w-full btn-neon py-4 font-bold text-lg flex items-center justify-center gap-2 disabled:opacity-40">
                   <Check size={20} />
                   ငွေပေးပြီးပါပြီ
                 </button>
               </div>
             )}
 
-            {/* Step: FORM */}
+            {/* FORM */}
             {step === 'form' && (
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
@@ -369,13 +382,11 @@ export default function ProductDetail({ productId }: { productId: string }) {
                     <h3 className="text-xl font-bold text-white">Order Details</h3>
                     <p className="text-xs text-gray-500 mt-1">အချက်အလက်များ ဖြည့်ပါ</p>
                   </div>
-                  <button onClick={() => setShowOrderForm(false)}
-                    className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white">
+                  <button onClick={() => setShowOrderForm(false)} className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-gray-400">
                     <X size={16} />
                   </button>
                 </div>
 
-                {/* Package */}
                 <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-4 mb-6">
                   <p className="text-xs text-gray-400 mb-1">ရွေးချယ်ထားသော Package</p>
                   <p className="font-bold text-cyan-400 text-lg">{selectedPkg?.name}</p>
@@ -384,7 +395,6 @@ export default function ProductDetail({ productId }: { productId: string }) {
                 </div>
 
                 <form onSubmit={handleProceedToPayment} className="space-y-5">
-                  {/* Name */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-300 mb-2">သင့်နာမည်</label>
                     <div className="flex items-center gap-3 bg-gray-900 border border-gray-700 rounded-xl px-4 py-3">
@@ -393,7 +403,6 @@ export default function ProductDetail({ productId }: { productId: string }) {
                     </div>
                   </div>
 
-                  {/* MLBB */}
                   {product.verifyType === 'mlbb' && (
                     <>
                       <div>
@@ -402,7 +411,7 @@ export default function ProductDetail({ productId }: { productId: string }) {
                           <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-400" />
                           <input type="text" placeholder="ဥပမာ - 123456789" value={gameId}
                             onChange={e => { setGameId(e.target.value); setVerifiedName(''); setVerifyError(''); }} required
-                            className="w-full pl-12 pr-4 py-4 bg-gray-900 border-2 border-gray-700 focus:border-cyan-500 rounded-xl text-white text-lg placeholder-gray-600 focus:outline-none transition-all" />
+                            className="w-full pl-12 pr-4 py-4 bg-gray-900 border-2 border-gray-700 focus:border-cyan-500 rounded-xl text-white text-lg placeholder-gray-600 focus:outline-none" />
                         </div>
                       </div>
                       <div>
@@ -411,12 +420,12 @@ export default function ProductDetail({ productId }: { productId: string }) {
                           <Server className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-magenta-400" />
                           <input type="text" placeholder="ဥပမာ - 1234" value={serverId}
                             onChange={e => { setServerId(e.target.value); setVerifiedName(''); setVerifyError(''); }} required
-                            className="w-full pl-12 pr-4 py-4 bg-gray-900 border-2 border-gray-700 focus:border-cyan-500 rounded-xl text-white text-lg placeholder-gray-600 focus:outline-none transition-all" />
+                            className="w-full pl-12 pr-4 py-4 bg-gray-900 border-2 border-gray-700 focus:border-cyan-500 rounded-xl text-white text-lg placeholder-gray-600 focus:outline-none" />
                         </div>
                       </div>
                       {!verifiedName && (
                         <button type="button" onClick={handleVerifyMLBB} disabled={verifying || !gameId || !serverId}
-                          className="w-full py-3 bg-gray-800 border border-cyan-500/50 rounded-xl text-cyan-400 font-semibold hover:bg-gray-700 transition-all flex items-center justify-center gap-2 disabled:opacity-40">
+                          className="w-full py-3 bg-gray-800 border border-cyan-500/50 rounded-xl text-cyan-400 font-semibold flex items-center justify-center gap-2 disabled:opacity-40">
                           {verifying ? <><Loader2 size={18} className="animate-spin" /> စစ်ဆေးနေသည်...</> : <><Search size={18} /> Game ID စစ်ဆေးမည်</>}
                         </button>
                       )}
@@ -433,7 +442,6 @@ export default function ProductDetail({ productId }: { productId: string }) {
                     </>
                   )}
 
-                  {/* PUBG */}
                   {product.verifyType === 'pubg' && (
                     <>
                       <div>
@@ -442,13 +450,13 @@ export default function ProductDetail({ productId }: { productId: string }) {
                           <Hash className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-400" />
                           <input type="text" placeholder="ဥပမာ - 5123456789" value={gameId}
                             onChange={e => { setGameId(e.target.value); setConfirmed(false); }} required
-                            className="w-full pl-12 pr-4 py-4 bg-gray-900 border-2 border-gray-700 focus:border-cyan-500 rounded-xl text-white text-lg placeholder-gray-600 focus:outline-none transition-all" />
+                            className="w-full pl-12 pr-4 py-4 bg-gray-900 border-2 border-gray-700 focus:border-cyan-500 rounded-xl text-white text-lg placeholder-gray-600 focus:outline-none" />
                         </div>
                         <p className="text-xs text-gray-500 mt-2">PUBG Mobile → Profile → Player ID မှ ရယူပါ</p>
                       </div>
                       {gameId && (
                         <label className="flex items-start gap-3 cursor-pointer bg-gray-900 border border-gray-700 rounded-xl p-4" onClick={() => setConfirmed(!confirmed)}>
-                          <div className={`w-6 h-6 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-all ${confirmed ? 'bg-cyan-500 border-cyan-500' : 'border-gray-600'}`}>
+                          <div className={`w-6 h-6 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${confirmed ? 'bg-cyan-500 border-cyan-500' : 'border-gray-600'}`}>
                             {confirmed && <Check size={14} className="text-white" />}
                           </div>
                           <p className="text-sm text-gray-300">Player ID <span className="text-cyan-400 font-bold">{gameId}</span> သည် ကျွန်ုပ်၏ PUBG Mobile account မှန်ကန်ကြောင်း အတည်ပြုပါသည်</p>
@@ -457,7 +465,6 @@ export default function ProductDetail({ productId }: { productId: string }) {
                     </>
                   )}
 
-                  {/* Telegram */}
                   {product.verifyType === 'telegram' && (
                     <>
                       <div>
@@ -466,17 +473,17 @@ export default function ProductDetail({ productId }: { productId: string }) {
                           <AtSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-400" />
                           <input type="text" placeholder="@username" value={gameId}
                             onChange={e => { setGameId(e.target.value); setConfirmed(false); }} required
-                            className="w-full pl-12 pr-4 py-4 bg-gray-900 border-2 border-gray-700 focus:border-cyan-500 rounded-xl text-white text-lg placeholder-gray-600 focus:outline-none transition-all" />
+                            className="w-full pl-12 pr-4 py-4 bg-gray-900 border-2 border-gray-700 focus:border-cyan-500 rounded-xl text-white text-lg placeholder-gray-600 focus:outline-none" />
                         </div>
                       </div>
                       {telegramUsername && (
                         <>
                           <a href={`https://t.me/${telegramUsername}`} target="_blank" rel="noopener noreferrer"
-                            className="w-full py-3 bg-gray-800 border border-cyan-500/50 rounded-xl text-cyan-400 font-semibold hover:bg-gray-700 transition-all flex items-center justify-center gap-2">
+                            className="w-full py-3 bg-gray-800 border border-cyan-500/50 rounded-xl text-cyan-400 font-semibold flex items-center justify-center gap-2">
                             <ExternalLink size={18} /> t.me/{telegramUsername} ကို ဖွင့်ကြည့်ပါ
                           </a>
                           <label className="flex items-start gap-3 cursor-pointer bg-gray-900 border border-gray-700 rounded-xl p-4" onClick={() => setConfirmed(!confirmed)}>
-                            <div className={`w-6 h-6 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-all ${confirmed ? 'bg-cyan-500 border-cyan-500' : 'border-gray-600'}`}>
+                            <div className={`w-6 h-6 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${confirmed ? 'bg-cyan-500 border-cyan-500' : 'border-gray-600'}`}>
                               {confirmed && <Check size={14} className="text-white" />}
                             </div>
                             <p className="text-sm text-gray-300"><span className="text-cyan-400 font-bold">@{telegramUsername}</span> သည် ကျွန်ုပ်၏ Telegram account မှန်ကန်ကြောင်း အတည်ပြုပါသည်</p>
@@ -500,4 +507,4 @@ export default function ProductDetail({ productId }: { productId: string }) {
       )}
     </div>
   );
-          }
+                    }
